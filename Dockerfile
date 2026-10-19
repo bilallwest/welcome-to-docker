@@ -1,24 +1,12 @@
-# Start your image with a node base image
-FROM node:22-alpine
-
-# The /app directory should act as the main application directory
+FROM node:22-alpine AS build
 WORKDIR /app
-
-# Copy the app package and package-lock.json file
 COPY package*.json ./
+RUN npm ci
+COPY index.html vite.config.ts tsconfig*.json ./
+COPY src ./src
+RUN npm run build
 
-# Copy local directories to the current local directory of our docker image (/app)
-COPY ./src ./src
-COPY ./public ./public
-
-# Install node packages, install serve, build the app, and remove dependencies at the end
-COPY .npmrc .
-RUN npm ci \
-    && npm install -g serve@latest \
-    && npm run build \
-    && rm -fr node_modules
-
-EXPOSE 3000
-
-# Start the app using serve command
-CMD [ "serve", "-s", "build" ]
+FROM nginx:1.27-alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
